@@ -53,6 +53,13 @@ ElementWriter.prototype.addLine = function (line, dontUpdateContextPosition, ind
 };
 
 ElementWriter.prototype.alignLine = function (line) {
+	
+	function checkLine(tagsArray, words) { // cneck tags are not stick together with word
+		return (tagsArray[i] && !(/^\s/.test(words[i].text)) && words[i-1] && !(/\s$/.test(words[i-1].text)) || //if current word is tag and previous not with space
+			(!(/^\s/.test(words[i].text)) && tagsArray[i-1] && !(/\s$/.test(words[i-1].text))) || // cneck tags are not stick together with word   
+			words[i].text === " "); //check space itself
+	}
+
 	var width = this.context.availableWidth;
 	var lineWidth = line.getWidth();
 
@@ -79,12 +86,14 @@ ElementWriter.prototype.alignLine = function (line) {
 			var additionalSpacing = (width - lineWidth) / (line.inlines.length - 1);
 			
 			//new logics
-			var tagsArray = line.inlines.map(word => word.hasOwnProperty('nodeName')); //tags bool array
-			if (tagsArray.filter(Boolean).length > 0) { //count tags in line
+			var tagsArray = line.inlines.map(word => word.hasOwnProperty('nodeName') || //search word with formatting
+				(word.hasOwnProperty('style') && word.style.some(el => el.match("html.ins")) && word.style.some(el => el.match(/[0-9a-f]{8}\b-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-\b[0-9a-f]{12}/g))) //search word in menmonics
+			); //tags bool array
+			var countTags = tagsArray.filter(Boolean).length;
+			if ((countTags > 0) && (countTags !== line.inlines.length)) { //count tags in line, skip if tags word count equal all words in line
 				var wordsCount = 0;
 				for (var i = 0, l = line.inlines.length; i < l; i++) {
-					if (tagsArray[i] && line.inlines[i-1] && !(/\s$/.test(line.inlines[i-1].text)) || 
-						(!(/^\s/.test(line.inlines[i].text)) && tagsArray[i-1])) {  // cneck tags are not stick together with word
+					if (checkLine(tagsArray, line.inlines)) {  // cneck tags are not stick together with word
 						continue;
 					}
 					wordsCount++;
@@ -99,8 +108,7 @@ ElementWriter.prototype.alignLine = function (line) {
 				wordsCount = 0;
 				for (var i = 1, l = line.inlines.length; i < l; i++) {
 					wordsCount++;
-					if (tagsArray[i] && line.inlines[i-1] && !(/\s$/.test(line.inlines[i-1].text)) || //if current word is tag and previous with space
-						(!(/^\s/.test(line.inlines[i].text)) && tagsArray[i-1])) { //if current word with space and previous tag
+					if (checkLine(tagsArray, line.inlines)) { //if current word with space and previous tag
 						wordsCount--;
 					}
 
